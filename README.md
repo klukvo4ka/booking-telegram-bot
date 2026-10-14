@@ -10,4 +10,4 @@ An asynchronous Telegram bot for booking service appointments. It is designed fo
 
 ## Status
 
-This project is under active development. The `/start` command, main menu and service selection are in place; the rest of the booking flow is being added step by step.
+This project is under active development. The `/start` command, main menu, service selection and date selection are in place; the rest of the booking flow is being added step by step.
