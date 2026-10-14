@@ -44,6 +44,17 @@ FROM bookings
 WHERE user_id = ? AND booking_date >= ?
 """
 
+SELECT_UPCOMING_BOOKING_FOR_USER = """
+SELECT id, service_id, booking_date, booking_time
+FROM bookings
+WHERE id = ? AND user_id = ? AND booking_date >= ?
+"""
+
+DELETE_UPCOMING_BOOKING_FOR_USER = """
+DELETE FROM bookings
+WHERE id = ? AND user_id = ? AND booking_date >= ?
+"""
+
 
 @dataclass(frozen=True)
 class BookingRecord:
@@ -104,3 +115,23 @@ async def count_upcoming_bookings_for_user(user_id: int, from_date: str) -> int:
         async with db.execute(COUNT_UPCOMING_BOOKINGS, (user_id, from_date)) as cursor:
             (count,) = await cursor.fetchone()
     return count
+
+
+async def get_upcoming_booking_for_user(
+    booking_id: int,
+    user_id: int,
+    from_date: str,
+) -> BookingRecord | None:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            SELECT_UPCOMING_BOOKING_FOR_USER, (booking_id, user_id, from_date)
+        ) as cursor:
+            row = await cursor.fetchone()
+    return BookingRecord(*row) if row else None
+
+
+async def delete_booking_for_user(booking_id: int, user_id: int, from_date: str) -> bool:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        cursor = await db.execute(DELETE_UPCOMING_BOOKING_FOR_USER, (booking_id, user_id, from_date))
+        await db.commit()
+        return cursor.rowcount > 0

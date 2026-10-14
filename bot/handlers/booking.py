@@ -302,7 +302,7 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
 
     summary = _booking_summary(service, day, time)
     try:
-        await notify_admin(callback.bot, format_admin_booking_notification(booking_id, user, summary))
+        await notify_admin(callback.bot, format_admin_booking_notification(user, summary))
     except Exception:
         logger.exception("Failed to notify admin about booking %s", booking_id)
 

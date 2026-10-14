@@ -18,6 +18,7 @@ The example catalog is a barbershop, but the same flow fits beauty services, tut
 - Recovery when a slot is taken while the user is still booking
 - Administrator notification for each saved booking
 - "My bookings" view with the user's upcoming appointments
+- Cancelling an upcoming booking from "My bookings", with a confirmation step
 - Limit of 3 upcoming bookings per user
 - Defensive validation of callback data and FSM state, including stale buttons
 
@@ -81,11 +82,12 @@ booking-telegram-bot/
 │   ├── handlers/
 │   │   ├── booking.py        # booking flow: service → date → time → confirmation
 │   │   ├── menu.py           # "About" section
-│   │   ├── my_bookings.py    # user's upcoming bookings
+│   │   ├── my_bookings.py    # upcoming bookings and cancellation
 │   │   └── start.py          # /start and main menu
 │   ├── keyboards/
 │   │   ├── booking.py        # inline keyboards and callback data
-│   │   └── main_menu.py      # reply keyboard
+│   │   ├── main_menu.py      # reply keyboard
+│   │   └── my_bookings.py    # booking cancellation buttons
 │   ├── states/
 │   │   └── booking.py        # FSM states
 │   ├── booking_rules.py      # slot availability and booking limit
@@ -170,6 +172,7 @@ The example assumes one specialist, so each date and time can be booked only onc
 - Availability is rechecked when a time is chosen and again right before saving.
 - The `UNIQUE (booking_date, booking_time)` constraint is the final guarantee against two users confirming the same slot at the same moment.
 - A user can have at most 3 upcoming bookings (today or later).
+- Users can cancel only their own upcoming bookings. The ownership check is part of the `DELETE` query itself, and the freed slot becomes available immediately.
 - Callback data and FSM data are validated before use; buttons from an outdated step are answered with a short notice instead of being processed.
 - If the administrator notification fails, the booking is still saved and the user still gets a confirmation.
 
@@ -179,4 +182,4 @@ The example assumes one specialist, so each date and time can be booked only onc
 - Dates and times use the server's local time.
 - The service catalog and working hours are defined in code (`bot/catalog.py`, `bot/dates.py`).
 
-Possible next steps include cancelling and rescheduling saved bookings, schedules for multiple specialists, configurable working hours and an administrative dashboard.
+Possible next steps include rescheduling saved bookings, notifying the administrator about cancellations, schedules for multiple specialists, configurable working hours and an administrative dashboard.
