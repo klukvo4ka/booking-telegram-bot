@@ -7,7 +7,7 @@ from aiogram.types import Message
 
 from bot.catalog import SERVICES
 from bot.database import BookingRecord, get_upcoming_bookings_for_user
-from bot.dates import format_date
+from bot.dates import format_date, local_today
 from bot.keyboards.main_menu import BOOK_BUTTON, MY_BOOKINGS_BUTTON
 
 router = Router(name="my_bookings")
@@ -40,7 +40,7 @@ async def show_my_bookings(message: Message) -> None:
     try:
         bookings = await get_upcoming_bookings_for_user(
             user_id=message.from_user.id,
-            from_date=date.today().isoformat(),
+            from_date=local_today().isoformat(),
         )
     except sqlite3.Error:
         logger.exception("Failed to load bookings")

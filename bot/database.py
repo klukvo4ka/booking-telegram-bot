@@ -32,6 +32,18 @@ WHERE user_id = ? AND booking_date >= ?
 ORDER BY booking_date, booking_time
 """
 
+SELECT_BOOKED_TIMES = """
+SELECT booking_time
+FROM bookings
+WHERE booking_date = ?
+"""
+
+COUNT_UPCOMING_BOOKINGS = """
+SELECT COUNT(*)
+FROM bookings
+WHERE user_id = ? AND booking_date >= ?
+"""
+
 
 @dataclass(frozen=True)
 class BookingRecord:
@@ -78,3 +90,17 @@ async def get_upcoming_bookings_for_user(user_id: int, from_date: str) -> list[B
         async with db.execute(SELECT_UPCOMING_BOOKINGS, (user_id, from_date)) as cursor:
             rows = await cursor.fetchall()
     return [BookingRecord(*row) for row in rows]
+
+
+async def get_booked_times_for_date(booking_date: str) -> set[str]:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(SELECT_BOOKED_TIMES, (booking_date,)) as cursor:
+            rows = await cursor.fetchall()
+    return {row[0] for row in rows}
+
+
+async def count_upcoming_bookings_for_user(user_id: int, from_date: str) -> int:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(COUNT_UPCOMING_BOOKINGS, (user_id, from_date)) as cursor:
+            (count,) = await cursor.fetchone()
+    return count

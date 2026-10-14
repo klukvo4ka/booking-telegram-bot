@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 
 BOOKING_DAYS = 7
 
@@ -14,9 +14,25 @@ MONTHS = (
 )
 
 
+def local_now() -> datetime:
+    return datetime.now()
+
+
+def local_today() -> date:
+    return local_now().date()
+
+
 def get_available_dates(today: date | None = None) -> list[date]:
-    today = today or date.today()
+    today = today or local_today()
     return [today + timedelta(days=offset) for offset in range(BOOKING_DAYS)]
+
+
+def get_future_times(day: date, now: datetime | None = None) -> tuple[str, ...]:
+    now = now or local_now()
+    return tuple(
+        slot for slot in AVAILABLE_TIMES
+        if datetime.combine(day, time.fromisoformat(slot)) > now
+    )
 
 
 def _day_and_month(day: date) -> str:

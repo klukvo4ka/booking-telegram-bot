@@ -1,15 +1,22 @@
 import logging
 import sqlite3
+from contextlib import suppress
 from datetime import date
 from typing import Any
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message
+from aiogram.types import CallbackQuery, InlineKeyboardMarkup, Message
 
+from bot.booking_rules import (
+    MAX_UPCOMING_BOOKINGS,
+    get_available_times_for_date,
+    has_reached_booking_limit,
+)
 from bot.catalog import SERVICES, Service
 from bot.database import SlotAlreadyBookedError, create_booking
-from bot.dates import AVAILABLE_TIMES, format_date, get_available_dates
+from bot.dates import AVAILABLE_TIMES, format_date, get_available_dates, get_future_times
 from bot.keyboards.booking import (
     BOOKING_CALLBACK_PREFIX,
     CANCEL_BOOKING_CALLBACK,
@@ -28,6 +35,9 @@ from bot.states.booking import BookingState
 
 router = Router(name="booking")
 logger = logging.getLogger(__name__)
+
+LIMIT_REACHED_TEXT = f"У вас уже есть {MAX_UPCOMING_BOOKINGS} предстоящие записи"
+AVAILABILITY_ERROR_TEXT = "Не удалось проверить свободное время, попробуйте позже"
 
 
 def _booking_summary(service: Service, day: date | None = None, time: str | None = None) -> str:
@@ -48,23 +58,112 @@ def _parse_iso_date(value: Any) -> date | None:
         return None
 
 
-def _load_booking(data: dict[str, Any]) -> tuple[Service, date, str] | None:
+def _load_service(data: dict[str, Any]) -> Service | None:
     service_id = data.get("service_id")
     if not isinstance(service_id, str):
         return None
+    return SERVICES.get(service_id)
 
-    service = SERVICES.get(service_id)
+
+def _load_service_and_date(data: dict[str, Any]) -> tuple[Service, date] | None:
+    service = _load_service(data)
     day = _parse_iso_date(data.get("date"))
+    if service is None or day is None or day not in get_available_dates():
+        return None
+    return service, day
 
+
+def _load_booking(data: dict[str, Any]) -> tuple[Service, date, str] | None:
+    service_and_date = _load_service_and_date(data)
+    if service_and_date is None:
+        return None
+    service, day = service_and_date
     time = data.get("time")
-    if service is None or day is None or day not in get_available_dates() or time not in AVAILABLE_TIMES:
+    if time not in AVAILABLE_TIMES:
         return None
     return service, day, time
+
+
+async def _edit_message(
+    callback: CallbackQuery,
+    text: str,
+    reply_markup: InlineKeyboardMarkup | None = None,
+) -> None:
+    if isinstance(callback.message, Message):
+        await callback.message.edit_text(text, reply_markup=reply_markup)
+
+
+async def _load_available_times(callback: CallbackQuery, day: date) -> tuple[str, ...] | None:
+    try:
+        return await get_available_times_for_date(day)
+    except sqlite3.Error:
+        logger.exception("Failed to load available times")
+        await callback.answer(AVAILABILITY_ERROR_TEXT, show_alert=True)
+        return None
+
+
+async def _show_time_choice(
+    callback: CallbackQuery,
+    state: FSMContext,
+    service: Service,
+    day: date,
+    times: tuple[str, ...],
+    heading: str = "Запись:",
+    prompt: str = "Выберите время:",
+) -> None:
+    await state.set_data({"service_id": service.id, "date": day.isoformat()})
+    await state.set_state(BookingState.choosing_time)
+    await _edit_message(
+        callback,
+        f"{heading}\n\n{_booking_summary(service, day)}\n\n{prompt}",
+        get_times_keyboard(times),
+    )
+
+
+async def _return_to_date_choice(callback: CallbackQuery, state: FSMContext, service: Service) -> None:
+    await state.set_data({"service_id": service.id})
+    await state.set_state(BookingState.choosing_date)
+    await _edit_message(
+        callback,
+        f"На эту дату свободного времени больше нет\n\n{_booking_summary(service)}\n\nВыберите другую дату:",
+        get_dates_keyboard(),
+    )
+
+
+async def _offer_other_time(
+    callback: CallbackQuery,
+    state: FSMContext,
+    service: Service,
+    day: date,
+    heading: str,
+) -> None:
+    times = await _load_available_times(callback, day)
+    if times is None:
+        return
+    if times:
+        await _show_time_choice(callback, state, service, day, times, heading, "Выберите другое время:")
+    else:
+        await _return_to_date_choice(callback, state, service)
+    await callback.answer()
 
 
 @router.message(F.text == BOOK_BUTTON)
 async def start_booking(message: Message, state: FSMContext) -> None:
     await state.clear()
+
+    try:
+        limit_reached = await has_reached_booking_limit(message.from_user.id)
+    except sqlite3.Error:
+        logger.exception("Failed to count user bookings")
+        await message.answer("Не удалось начать запись, попробуйте позже")
+        return
+
+    if limit_reached:
+        await message.answer(
+            f"{LIMIT_REACHED_TEXT}\n\nСначала используйте одну из них или обратитесь к администратору"
+        )
+        return
+
     await state.set_state(BookingState.choosing_service)
     await message.answer("Выберите услугу:", reply_markup=get_services_keyboard())
 
@@ -82,12 +181,11 @@ async def choose_service(callback: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(service_id=service.id)
     await state.set_state(BookingState.choosing_date)
-
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text(
-            f"Вы выбрали:\n\n{_booking_summary(service)}\n\nВыберите дату:",
-            reply_markup=get_dates_keyboard(),
-        )
+    await _edit_message(
+        callback,
+        f"Вы выбрали:\n\n{_booking_summary(service)}\n\nВыберите дату:",
+        get_dates_keyboard(),
+    )
     await callback.answer()
 
 
@@ -105,16 +203,21 @@ async def choose_date(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Эта дата больше недоступна, выберите другую", show_alert=True)
         return
 
-    await state.update_data(date=day.isoformat())
-    await state.set_state(BookingState.choosing_time)
-    data = await state.get_data()
-    service = SERVICES[data["service_id"]]
+    times = await _load_available_times(callback, day)
+    if times is None:
+        return
+    if not times:
+        await callback.answer("На эту дату свободного времени нет\n\nВыберите другую дату", show_alert=True)
+        return
 
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text(
-            f"Запись:\n\n{_booking_summary(service, day)}\n\nВыберите время:",
-            reply_markup=get_times_keyboard(),
-        )
+    service = _load_service(await state.get_data())
+    if service is None:
+        await state.clear()
+        await _edit_message(callback, "Не удалось продолжить запись, начните заново")
+        await callback.answer()
+        return
+
+    await _show_time_choice(callback, state, service, day, times)
     await callback.answer()
 
 
@@ -128,17 +231,34 @@ async def choose_time(callback: CallbackQuery, state: FSMContext) -> None:
         await callback.answer("Это время недоступно, выберите другое", show_alert=True)
         return
 
+    service_and_date = _load_service_and_date(await state.get_data())
+    if service_and_date is None:
+        await state.clear()
+        await _edit_message(callback, "Не удалось продолжить запись, начните заново")
+        await callback.answer()
+        return
+    service, day = service_and_date
+
+    times = await _load_available_times(callback, day)
+    if times is None:
+        return
+
+    if time not in times:
+        await callback.answer("Это время уже недоступно, выберите другое", show_alert=True)
+        if not times:
+            await _return_to_date_choice(callback, state, service)
+        elif isinstance(callback.message, Message):
+            with suppress(TelegramBadRequest):
+                await callback.message.edit_reply_markup(reply_markup=get_times_keyboard(times))
+        return
+
     await state.update_data(time=time)
     await state.set_state(BookingState.confirming_booking)
-    data = await state.get_data()
-    service = SERVICES[data["service_id"]]
-    day = date.fromisoformat(data["date"])
-
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text(
-            f"Проверьте запись:\n\n{_booking_summary(service, day, time)}\n\nВсё верно?",
-            reply_markup=get_confirmation_keyboard(),
-        )
+    await _edit_message(
+        callback,
+        f"Проверьте запись:\n\n{_booking_summary(service, day, time)}\n\nВсё верно?",
+        get_confirmation_keyboard(),
+    )
     await callback.answer()
 
 
@@ -146,48 +266,55 @@ async def choose_time(callback: CallbackQuery, state: FSMContext) -> None:
 async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
     booking = _load_booking(await state.get_data())
     if booking is None:
-        text = "Не удалось подтвердить запись, начните заново"
-    else:
-        service, day, time = booking
-        user = callback.from_user
-        try:
-            booking_id = await create_booking(
-                user_id=user.id,
-                username=user.username,
-                first_name=user.first_name,
-                service_id=service.id,
-                booking_date=day.isoformat(),
-                booking_time=time,
-            )
-        except SlotAlreadyBookedError:
-            text = "Это время уже занято\n\nВыберите другое время и попробуйте снова"
-        except sqlite3.Error:
-            logger.exception("Failed to save booking")
-            await callback.answer("Не удалось сохранить запись, попробуйте позже", show_alert=True)
+        await state.clear()
+        await _edit_message(callback, "Не удалось подтвердить запись, начните заново")
+        await callback.answer()
+        return
+
+    service, day, time = booking
+    if time not in get_future_times(day):
+        await _offer_other_time(callback, state, service, day, "Это время уже недоступно")
+        return
+
+    user = callback.from_user
+    try:
+        if await has_reached_booking_limit(user.id):
+            await state.clear()
+            await _edit_message(callback, f"{LIMIT_REACHED_TEXT}\n\nНовая запись не создана")
+            await callback.answer()
             return
-        else:
-            summary = _booking_summary(service, day, time)
-            try:
-                await notify_admin(
-                    callback.bot,
-                    format_admin_booking_notification(booking_id, user, summary),
-                )
-            except Exception:
-                logger.exception("Failed to notify admin about booking %s", booking_id)
-            text = f"✅ Запись подтверждена\n\n{summary}\n\nДо встречи!"
+
+        booking_id = await create_booking(
+            user_id=user.id,
+            username=user.username,
+            first_name=user.first_name,
+            service_id=service.id,
+            booking_date=day.isoformat(),
+            booking_time=time,
+        )
+    except SlotAlreadyBookedError:
+        await _offer_other_time(callback, state, service, day, "Это время уже заняли")
+        return
+    except sqlite3.Error:
+        logger.exception("Failed to save booking")
+        await callback.answer("Не удалось сохранить запись, попробуйте позже", show_alert=True)
+        return
+
+    summary = _booking_summary(service, day, time)
+    try:
+        await notify_admin(callback.bot, format_admin_booking_notification(booking_id, user, summary))
+    except Exception:
+        logger.exception("Failed to notify admin about booking %s", booking_id)
 
     await state.clear()
-
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text(text)
+    await _edit_message(callback, f"✅ Запись подтверждена\n\n{summary}\n\nДо встречи!")
     await callback.answer()
 
 
 @router.callback_query(BookingState.confirming_booking, F.data == CANCEL_BOOKING_CALLBACK)
 async def cancel_booking(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
-    if isinstance(callback.message, Message):
-        await callback.message.edit_text("Запись отменена\n\nВы можете начать заново через меню")
+    await _edit_message(callback, "Запись отменена\n\nВы можете начать заново через меню")
     await callback.answer()
 
 

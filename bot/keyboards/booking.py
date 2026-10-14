@@ -1,9 +1,9 @@
-from datetime import date
+from collections.abc import Sequence
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 from bot.catalog import SERVICES
-from bot.dates import AVAILABLE_TIMES, format_date_option, get_available_dates
+from bot.dates import format_date_option, get_available_dates, local_today
 
 SERVICE_CALLBACK_PREFIX = "service:"
 DATE_CALLBACK_PREFIX = "date:"
@@ -30,7 +30,7 @@ def get_services_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_dates_keyboard() -> InlineKeyboardMarkup:
-    today = date.today()
+    today = local_today()
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
@@ -44,10 +44,10 @@ def get_dates_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def get_times_keyboard() -> InlineKeyboardMarkup:
+def get_times_keyboard(times: Sequence[str]) -> InlineKeyboardMarkup:
     buttons = [
         InlineKeyboardButton(text=time, callback_data=f"{TIME_CALLBACK_PREFIX}{time}")
-        for time in AVAILABLE_TIMES
+        for time in times
     ]
     return InlineKeyboardMarkup(
         inline_keyboard=[
