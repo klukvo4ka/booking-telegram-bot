@@ -1,21 +1,20 @@
 from aiogram import F, Router
 from aiogram.types import Message
 
-from bot.catalog import SERVICES
-from bot.dates import AVAILABLE_TIMES, BOOKING_DAYS
-from bot.keyboards.main_menu import ABOUT_BUTTON, BOOK_BUTTON
+from bot.catalog import BUSINESS_ADDRESS, BUSINESS_HOURS, BUSINESS_NAME
+from bot.keyboards.main_menu import ABOUT_BUTTON
 
 router = Router(name="menu")
 
 ABOUT_TEXT = (
-    "ℹ️ О сервисе\n\n"
-    "Онлайн-запись в барбершоп\n\n"
-    "Услуги:\n"
-    + "\n".join(service.label for service in SERVICES.values())
-    + "\n\n"
-    f"Время записи: {AVAILABLE_TIMES[0]}–{AVAILABLE_TIMES[-1]}, каждый час\n"
-    f"Запись открыта на {BOOKING_DAYS} дней вперёд\n\n"
-    f"Нажмите «{BOOK_BUTTON}», чтобы выбрать время"
+    f"{BUSINESS_NAME} — современный барбершоп в центре Москвы\n\n"
+    "✂️ Мужские стрижки\n"
+    "🧔 Оформление бороды\n"
+    "👦 Детские стрижки\n"
+    "🧴 Уход и укладка\n\n"
+    f"📍 {BUSINESS_ADDRESS}\n"
+    f"🕙 {BUSINESS_HOURS}\n\n"
+    "Запись доступна прямо в Telegram — выберите услугу, дату и свободное время"
 )
 
 

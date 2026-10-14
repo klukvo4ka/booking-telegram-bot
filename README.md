@@ -2,7 +2,7 @@
 
 An asynchronous Telegram bot for appointment booking built with Python, aiogram 3 and SQLite. Users choose a service, a date and a free time slot, confirm the booking and can review their upcoming appointments. The administrator gets a Telegram notification for every new booking.
 
-The example catalog is a barbershop, but the same flow fits beauty services, tutoring or any other appointment-based business.
+The included demo configuration represents North Cut, a fictional barbershop in Moscow with seven services. The same flow fits beauty services, tutoring or any other appointment-based business.
 
 ## Features
 
@@ -91,7 +91,7 @@ booking-telegram-bot/
 │   ├── states/
 │   │   └── booking.py        # FSM states
 │   ├── booking_rules.py      # slot availability and booking limit
-│   ├── catalog.py            # services and prices
+│   ├── catalog.py            # business details, services and prices
 │   ├── config.py             # environment configuration
 │   ├── database.py           # SQLite schema and queries
 │   ├── dates.py              # booking window, time slots, Russian date formatting
@@ -180,6 +180,6 @@ The example assumes one specialist, so each date and time can be booked only onc
 
 - In-progress booking state uses aiogram's in-memory FSM storage, so an unfinished booking is reset when the bot restarts. Confirmed bookings are kept in SQLite.
 - Dates and times use the server's local time.
-- The service catalog and working hours are defined in code (`bot/catalog.py`, `bot/dates.py`).
+- The business details, service catalog and booking slots are defined in code (`bot/catalog.py`, `bot/dates.py`), so the demo branding can be replaced without touching the booking logic.
 
 Possible next steps include rescheduling saved bookings, notifying the administrator about cancellations, schedules for multiple specialists, configurable working hours and an administrative dashboard.
