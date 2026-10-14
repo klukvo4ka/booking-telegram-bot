@@ -4,8 +4,6 @@ BOOK_BUTTON = "📅 Записаться"
 MY_BOOKINGS_BUTTON = "📋 Мои записи"
 ABOUT_BUTTON = "ℹ️ О сервисе"
 
-MAIN_MENU_BUTTONS = (BOOK_BUTTON, MY_BOOKINGS_BUTTON, ABOUT_BUTTON)
-
 
 def get_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
