@@ -3,10 +3,13 @@ import asyncio
 from aiogram import Bot, Dispatcher
 
 from bot.config import config
+from bot.database import init_db
 from bot.handlers import booking, menu, start
 
 
 async def main() -> None:
+    await init_db()
+
     bot = Bot(token=config.bot_token)
     dp = Dispatcher()
     dp.include_routers(start.router, booking.router, menu.router)

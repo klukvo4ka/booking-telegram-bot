@@ -7,7 +7,8 @@ An asynchronous Telegram bot for booking service appointments. It is designed fo
 - Python 3.12+
 - aiogram 3
 - python-dotenv
+- SQLite (aiosqlite)
 
 ## Status
 
-This project is under active development. The booking flow covers service, date and time selection with a confirmation step. Bookings are not saved yet and are lost on restart; persistence and the remaining features are being added step by step.
+This project is under active development. The booking flow covers service, date and time selection with a confirmation step. Confirmed bookings are stored in SQLite, and each date/time slot can be booked only once. The remaining features are being added step by step.

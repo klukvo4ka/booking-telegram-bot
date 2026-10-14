@@ -1,3 +1,5 @@
+import logging
+import sqlite3
 from datetime import date
 from typing import Any
 
@@ -6,6 +8,7 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from bot.catalog import SERVICES, Service
+from bot.database import SlotAlreadyBookedError, create_booking
 from bot.dates import AVAILABLE_TIMES, format_date, get_available_dates
 from bot.keyboards.booking import (
     BOOKING_CALLBACK_PREFIX,
@@ -23,6 +26,7 @@ from bot.keyboards.main_menu import BOOK_BUTTON
 from bot.states.booking import BookingState
 
 router = Router(name="booking")
+logger = logging.getLogger(__name__)
 
 
 def _booking_summary(service: Service, day: date | None = None, time: str | None = None) -> str:
@@ -140,12 +144,30 @@ async def choose_time(callback: CallbackQuery, state: FSMContext) -> None:
 @router.callback_query(BookingState.confirming_booking, F.data == CONFIRM_BOOKING_CALLBACK)
 async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
     booking = _load_booking(await state.get_data())
-    await state.clear()
-
     if booking is None:
         text = "Не удалось подтвердить запись, начните заново"
     else:
-        text = f"✅ Запись подтверждена\n\n{_booking_summary(*booking)}\n\nДо встречи!"
+        service, day, time = booking
+        user = callback.from_user
+        try:
+            await create_booking(
+                user_id=user.id,
+                username=user.username,
+                first_name=user.first_name,
+                service_id=service.id,
+                booking_date=day.isoformat(),
+                booking_time=time,
+            )
+        except SlotAlreadyBookedError:
+            text = "Это время уже занято\n\nВыберите другое время и попробуйте снова"
+        except sqlite3.Error:
+            logger.exception("Failed to save booking")
+            await callback.answer("Не удалось сохранить запись, попробуйте позже", show_alert=True)
+            return
+        else:
+            text = f"✅ Запись подтверждена\n\n{_booking_summary(service, day, time)}\n\nДо встречи!"
+
+    await state.clear()
 
     if isinstance(callback.message, Message):
         await callback.message.edit_text(text)
