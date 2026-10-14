@@ -23,6 +23,7 @@ from bot.keyboards.booking import (
     get_times_keyboard,
 )
 from bot.keyboards.main_menu import BOOK_BUTTON
+from bot.notifications import format_admin_booking_notification, notify_admin
 from bot.states.booking import BookingState
 
 router = Router(name="booking")
@@ -150,7 +151,7 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
         service, day, time = booking
         user = callback.from_user
         try:
-            await create_booking(
+            booking_id = await create_booking(
                 user_id=user.id,
                 username=user.username,
                 first_name=user.first_name,
@@ -165,7 +166,15 @@ async def confirm_booking(callback: CallbackQuery, state: FSMContext) -> None:
             await callback.answer("Не удалось сохранить запись, попробуйте позже", show_alert=True)
             return
         else:
-            text = f"✅ Запись подтверждена\n\n{_booking_summary(service, day, time)}\n\nДо встречи!"
+            summary = _booking_summary(service, day, time)
+            try:
+                await notify_admin(
+                    callback.bot,
+                    format_admin_booking_notification(booking_id, user, summary),
+                )
+            except Exception:
+                logger.exception("Failed to notify admin about booking %s", booking_id)
+            text = f"✅ Запись подтверждена\n\n{summary}\n\nДо встречи!"
 
     await state.clear()
 
