@@ -11,4 +11,4 @@ An asynchronous Telegram bot for booking service appointments. It is designed fo
 
 ## Status
 
-This project is under active development. The booking flow covers service, date and time selection with a confirmation step. Confirmed bookings are stored in SQLite, and each date/time slot can be booked only once. The administrator receives a Telegram notification for every new booking. The remaining features are being added step by step.
+This project is under active development. The booking flow covers service, date and time selection with a confirmation step. Confirmed bookings are stored in SQLite, and each date/time slot can be booked only once. The administrator receives a Telegram notification for every new booking. Users can view their upcoming bookings from the main menu. The remaining features are being added step by step.
