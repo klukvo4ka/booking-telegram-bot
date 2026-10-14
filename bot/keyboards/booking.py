@@ -10,6 +10,10 @@ DATE_CALLBACK_PREFIX = "date:"
 TIME_CALLBACK_PREFIX = "time:"
 TIME_BUTTONS_PER_ROW = 2
 
+BOOKING_CALLBACK_PREFIX = "booking:"
+CONFIRM_BOOKING_CALLBACK = f"{BOOKING_CALLBACK_PREFIX}confirm"
+CANCEL_BOOKING_CALLBACK = f"{BOOKING_CALLBACK_PREFIX}cancel"
+
 
 def get_services_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
@@ -49,5 +53,16 @@ def get_times_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             buttons[i : i + TIME_BUTTONS_PER_ROW]
             for i in range(0, len(buttons), TIME_BUTTONS_PER_ROW)
+        ]
+    )
+
+
+def get_confirmation_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Подтвердить", callback_data=CONFIRM_BOOKING_CALLBACK),
+                InlineKeyboardButton(text="❌ Отменить", callback_data=CANCEL_BOOKING_CALLBACK),
+            ]
         ]
     )
