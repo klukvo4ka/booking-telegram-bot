@@ -20,7 +20,7 @@ def get_services_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text=f"{service.title} — {service.price_label}",
+                    text=service.label,
                     callback_data=f"{SERVICE_CALLBACK_PREFIX}{service.id}",
                 )
             ]

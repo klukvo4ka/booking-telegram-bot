@@ -11,6 +11,10 @@ class Service:
     def price_label(self) -> str:
         return f"{self.price} ₽"
 
+    @property
+    def label(self) -> str:
+        return f"{self.title} — {self.price_label}"
+
 
 SERVICES: dict[str, Service] = {
     service.id: service
