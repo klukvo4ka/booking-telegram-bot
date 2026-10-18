@@ -24,24 +24,17 @@ The included demo configuration represents North Cut, a fictional barbershop in 
 
 ## Demo
 
-Screenshots are stored in [`docs/screenshots/`](docs/screenshots/).
+<p align="center">
+  <img src="docs/screenshots/screenshot-1.jpg" width="30%">
+  <img src="docs/screenshots/screenshot-2.jpg" width="30%">
+  <img src="docs/screenshots/screenshot-3.jpg" width="30%">
+</p>
 
-<!--
-### Main menu
-![Main menu](docs/screenshots/main-menu.png)
-
-### Service selection
-![Service selection](docs/screenshots/service-selection.png)
-
-### Date and time selection
-![Date and time selection](docs/screenshots/date-time-selection.png)
-
-### Booking confirmation
-![Booking confirmation](docs/screenshots/confirmation.png)
-
-### My bookings
-![My bookings](docs/screenshots/my-bookings.png)
--->
+<p align="center">
+  <img src="docs/screenshots/screenshot-4.jpg" width="30%">
+  <img src="docs/screenshots/screenshot-5.jpg" width="30%">
+  <img src="docs/screenshots/screenshot-6.png" width="30%">
+</p>
 
 ## Booking Flow
 
